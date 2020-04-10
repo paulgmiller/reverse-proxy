@@ -4,6 +4,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.ReverseProxy.Core.Abstractions;
 using Microsoft.ReverseProxy.Core.Configuration.DependencyInjection;
 
 namespace Microsoft.ReverseProxy.Sample
@@ -29,7 +30,33 @@ namespace Microsoft.ReverseProxy.Sample
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
-            services.AddReverseProxy().LoadFromConfig(_configuration.GetSection("ReverseProxy"), reloadOnChange: true);
+            services.AddReverseProxy()
+                .LoadFromConfig(_configuration.GetSection("ReverseProxy"), reloadOnChange: true)
+                .ConfigureBackendDefaults((id, backend) =>
+                {
+                    backend.HealthCheckOptions ??= new HealthCheckOptions();
+                    backend.HealthCheckOptions.Enabled = true;
+                })
+                .ConfigureBackend("backend1", backend =>
+                {
+                    backend.HealthCheckOptions.Enabled = false;
+                })
+                .ConfigureRouteDefaults(route =>
+                {
+                    // Do not let config based routes take priority over code based routes.
+                    // Lower numbers are higher priority.
+                    if (route.Priority.HasValue && route.Priority.Value < 0)
+                    {
+                        route.Priority = 0;
+                    }
+                })
+                .ConfigureRoute("route1", route =>
+                {
+                    route.Priority = 10;
+                })
+                // What if I need services? They'd better be singletons
+                // .ConfigureRoute<TService>(string RouteId, Action<ProxyRoute, TService>)
+                ;
         }
 
         /// <summary>
