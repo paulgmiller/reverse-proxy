@@ -7,7 +7,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.ReverseProxy.Core.Configuration.DependencyInjection;
-
+using Microsoft.ReverseProxy.Common;
+using Microsoft.ReverseProxy.Core.Abstractions;
+using System.Threading.Tasks;
 using k8s;
 using k8s.Models;
 
@@ -49,9 +51,8 @@ namespace Microsoft.ReverseProxy.Sample
             IRoutesRepo routesRepo,  IReverseProxyConfigManager proxyManager)
         {
             app.UseHttpsRedirection();
-
         
-            Task.Wait(LoadFromIngress(backendsRepo, routesRepo, proxyManager))
+            LoadFromIngress(backendsRepo, routesRepo, proxyManager).Wait();
             app.UseRouting();
             app.UseAuthorization();
             app.UseEndpoints(endpoints =>
@@ -77,13 +78,28 @@ namespace Microsoft.ReverseProxy.Sample
             IReverseProxyConfigManager proxyManager)
         {
             var config = KubernetesClientConfiguration.BuildConfigFromConfigFile();
+            
             var client = new Kubernetes(config); //inject this? 
+            var ingress =  await client.ListIngressForAllNamespacesWithHttpMessagesAsync(watch: true);
 
+            using (podlistResp.Watch<Extensionsv1beta1Ingress, Extensionsv1beta1IngressList>((type, item) =>
+            {
+                Console.WriteLine("==on watch event==");
+                Console.WriteLine(type);
+                Console.WriteLine(item.Metadata.Name);
+                Console.WriteLine("==on watch event==");
+            })){
+                var ctrlc = new ManualResetEventSlim(false);
+                Console.CancelKeyPress += (sender, eventArgs) => ctrlc.Set();
+                ctrlc.Wait();
+            }
+            /*
             await backendsRepo.SetBackendsAsync(config.Backends, CancellationToken.None);
             await routesRepo.SetRoutesAsync(config.Routes, CancellationToken.None);
 
             var errorReporter = new LoggerConfigErrorReporter(_logger);
             await _proxyManager.ApplyConfigurationsAsync(errorReporter, CancellationToken.None);
+            */
         }
     }
 }
