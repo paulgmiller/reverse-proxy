@@ -10,8 +10,10 @@ using Microsoft.ReverseProxy.Core.Configuration.DependencyInjection;
 using Microsoft.ReverseProxy.Common;
 using Microsoft.ReverseProxy.Core.Abstractions;
 using System.Threading.Tasks;
+using System.Threading;
 using k8s;
 using k8s.Models;
+using System;
 
 
 namespace Microsoft.ReverseProxy.Sample
@@ -82,12 +84,12 @@ namespace Microsoft.ReverseProxy.Sample
             var client = new Kubernetes(config); //inject this? 
             var ingress =  await client.ListIngressForAllNamespacesWithHttpMessagesAsync(watch: true);
 
-            using (podlistResp.Watch<Extensionsv1beta1Ingress, Extensionsv1beta1IngressList>((type, item) =>
+            using (ingress.Watch<Extensionsv1beta1Ingress, Extensionsv1beta1IngressList>((type, item) =>
             {
-                Console.WriteLine("==on watch event==");
+                
                 Console.WriteLine(type);
                 Console.WriteLine(item.Metadata.Name);
-                Console.WriteLine("==on watch event==");
+                
             })){
                 var ctrlc = new ManualResetEventSlim(false);
                 Console.CancelKeyPress += (sender, eventArgs) => ctrlc.Set();
