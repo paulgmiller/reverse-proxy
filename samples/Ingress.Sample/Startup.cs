@@ -49,12 +49,11 @@ namespace Microsoft.ReverseProxy.Sample
         /// <summary>
         /// This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         /// </summary>
-        public void Configure(IApplicationBuilder app, IBackendsRepo backendsRepo,
-            IRoutesRepo routesRepo,  IReverseProxyConfigManager proxyManager)
+        public void Configure(IApplicationBuilder app, IReverseProxyConfigManager proxyManager)
         {
             app.UseHttpsRedirection();
         
-            LoadFromIngress(backendsRepo, routesRepo, proxyManager).Wait();
+            LoadFromIngress(proxyManager).Wait();
             app.UseRouting();
             app.UseAuthorization();
             app.UseEndpoints(endpoints =>
@@ -75,12 +74,11 @@ namespace Microsoft.ReverseProxy.Sample
             });
         }
 
-        private async Task LoadFromIngress(IBackendsRepo backendsRepo,
-            IRoutesRepo routesRepo,
-            IReverseProxyConfigManager proxyManager)
+        private async Task LoadFromIngress(IReverseProxyConfigManager proxyManager)
         {
             var config = KubernetesClientConfiguration.BuildConfigFromConfigFile();
-            
+            var backendsRepo = new InMemoryBackendsRepo();
+            var routesRepo = new InMemoryRoutesRepo()
             var client = new Kubernetes(config); //inject this? 
             var ingress =  await client.ListIngressForAllNamespacesWithHttpMessagesAsync(watch: true);
 
